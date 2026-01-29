@@ -1,0 +1,16 @@
+# Cache
+__pycache__/
+*.pyc
+.ruff_cache/
+
+# Environment
+.venv/
+data/
+work/
+static/
+
+# Secrets
+.env
+
+# Migration
+_temp/
