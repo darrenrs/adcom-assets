@@ -1,0 +1,35 @@
+import json
+from typing import Any
+
+from .paths import PAYLOAD_DIR
+
+
+def make_http_response(
+  *, ok: bool, title_id: str, data_version: str, current_step: str | None, status: str
+) -> dict[str, Any]:
+  return {
+    'ok': ok,
+    'parameters': {
+      'titleId': title_id,
+      'dataVersion': data_version,
+    },
+    'currentStep': current_step,
+    'status': status,
+  }
+
+
+def load_payload(filename: str) -> dict[str, Any]:
+  """
+  Loads a PlayFab payload file from filesystem
+
+  :param filename: Payload file name
+  :type filename: str
+  :return: JSON representation of payload
+  :rtype: dict[str, Any]
+  """
+  path = PAYLOAD_DIR / filename
+
+  if not path.exists():
+    raise FileNotFoundError(f'Missing payload template: {path}')
+
+  return json.loads(path.read_text(encoding='utf-8'))
