@@ -22,7 +22,7 @@ class AppError(Exception):
 class PlayFabAuthError(AppError):
   def __init__(
     self,
-    message: str = 'Missing PlayFab authentication ID. Set PLAYFAB_AUTH_ID in .env.',
+    message: str = 'Missing PlayFab authentication ID (PLAYFAB_AUTH_ID).',
     details: dict[str, Any] | None = None,
   ):
     super().__init__(code='PLAYFAB_AUTH_ERROR', message=message, status_code=401, details=details)
@@ -32,7 +32,7 @@ class InvalidVersionError(AppError):
   def __init__(self, version: str, details: dict[str, Any] | None = None):
     super().__init__(
       code='INVALID_VERSION_ERROR',
-      message=f'No data found for version {version}',
+      message=f'No data found for version {version}.',
       status_code=404,
       details={'requested': version},
     )

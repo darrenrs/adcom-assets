@@ -27,20 +27,22 @@ def _require_key(d: dict[str, Any], key: str, path: str) -> Any:
   return d[key]
 
 
-def _validate_manifest_schema(manifest: Any) -> None:
+def _validate_manifest_schema(manifest: Any, title_id: str) -> None:
   """
   Schema validation for Manifest
 
   :param manifest: Manifest JSON
   :type manifest: Any
+  :param title_id: Title ID
+  :type title_id: str
   """
   m = _require_dict(manifest, 'manifest')
 
-  vs = _require_dict(_require_key(m, 'VersionSettings', 'manifest'), 'manifest.VersionSettings')
+  m_root = _require_dict(_require_key(m, 'VersionSettings', 'manifest'), 'manifest.VersionSettings')
 
   # AssetBundle
   ab = _require_dict(
-    _require_key(vs, 'AssetBundle', 'manifest.VersionSettings'),
+    _require_key(m_root, 'AssetBundle', 'manifest.VersionSettings'),
     'manifest.VersionSettings.AssetBundle',
   )
   _require_str(
@@ -54,7 +56,7 @@ def _validate_manifest_schema(manifest: Any) -> None:
 
   # Balance
   bal = _require_dict(
-    _require_key(vs, 'Balance', 'manifest.VersionSettings'), 'manifest.VersionSettings.Balance'
+    _require_key(m_root, 'Balance', 'manifest.VersionSettings'), 'manifest.VersionSettings.Balance'
   )
   _require_str(
     _require_key(bal, 'BaseURL', 'manifest.VersionSettings.Balance'),
@@ -66,9 +68,20 @@ def _validate_manifest_schema(manifest: Any) -> None:
       path='manifest.VersionSettings.Balance.Urls', expected='non-empty object/dict', got=bal_urls
     )
 
+  # LeaderBoardNames (only if AdCom)
+  if title_id == '6bf5':
+    lb = _require_dict(
+      _require_key(m_root, 'LeaderBoardNames', 'manifest.VersionSettings'),
+      'manifest.VersionSettings.LeaderBoardNames',
+    )
+    _require_str(
+      _require_key(lb, 'Url', 'manifest.VersionSettings.LeaderBoardNames'),
+      'manifest.VersionSettings.LeaderBoardNames.Url',
+    )
+
   # Localization
   loc = _require_dict(
-    _require_key(vs, 'Localization', 'manifest.VersionSettings'),
+    _require_key(m_root, 'Localization', 'manifest.VersionSettings'),
     'manifest.VersionSettings.Localization',
   )
   _require_str(
@@ -85,7 +98,7 @@ def _validate_manifest_schema(manifest: Any) -> None:
 
   # LTESchedule
   lte = _require_dict(
-    _require_key(vs, 'LTESchedule', 'manifest.VersionSettings'),
+    _require_key(m_root, 'LTESchedule', 'manifest.VersionSettings'),
     'manifest.VersionSettings.LTESchedule',
   )
   _require_str(
@@ -141,11 +154,11 @@ def get_manifest(title_id: str, session_ticket: str, data_version: str) -> dict[
       details={'rawSnippet': snippet},
     ) from e
 
-  _validate_manifest_schema(manifest)
+  _validate_manifest_schema(manifest, title_id)
   return manifest
 
 
 def write_manifest_to_disk(title_id: str, manifest: dict[str, Any]) -> None:
-  out_dir = WORK_ROOT / title_id
+  out_dir = WORK_ROOT / title_id / 'output'
   out_dir.mkdir(parents=True, exist_ok=True)
   (out_dir / 'manifest.json').write_text(json.dumps(manifest, indent=2), encoding='utf-8')

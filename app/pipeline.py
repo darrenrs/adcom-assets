@@ -1,4 +1,4 @@
-import json
+import json  # noqa: I001
 import traceback
 from datetime import UTC, datetime
 from pathlib import Path
@@ -9,6 +9,8 @@ from .errors import AppError
 from .paths import WORK_ROOT
 from .steps.auth import login_session_ticket
 from .steps.manifest import get_manifest, write_manifest_to_disk
+from .steps.parse_json import download_json_files, gunzip_json_files
+from .steps.parse_uab import download_uab_manifest, download_uab_all
 
 
 def _now() -> str:
@@ -19,7 +21,7 @@ def _add_step(steps: list[dict[str, Any]], step_name: str, ok: bool) -> None:
   steps.append({'step': step_name, 'ok': ok, 'completeAt': _now()})
 
 
-def run_pipeline(title_id: str, data_version: str) -> tuple[int, dict[str, Any]]:
+async def run_pipeline(title_id: str, data_version: str) -> tuple[int, dict[str, Any]]:
   """Run the update pipeline for a Title ID and DataVersion.
 
   Returns:
@@ -61,20 +63,28 @@ def run_pipeline(title_id: str, data_version: str) -> tuple[int, dict[str, Any]]
     session_ticket = login_session_ticket(title_id)
     _add_step(steps, 'auth', True)
 
-    # Step 2: fetch/parse manifest
+    # Step 2: fetch, validate, and parse manifest
     current_step = 'manifest'
     admin_status['currentStep'] = current_step
     manifest = get_manifest(title_id, session_ticket, data_version)
     write_manifest_to_disk(title_id, manifest)
     _add_step(steps, 'manifest', True)
 
-    # TODO pipeline steps will go here
-    # Step 3: download + gunzip balance JSON files
-    # Step 4: download + gunzip LTE schedule JSON file
-    # Step 5: download + gunzip leaderboard names JSON file (optional)
-    # Step 6: download + gunzip localization (English) + rename to .txt
-    # Step 7: asset bundle manifest bundle -> extract JSON of bundle URLs
-    # Step 8: (later) download bundles + extract images/icons
+    # Step 3: download + gunzip json/txt files (balance, schedule, localization, leaderboard names)
+    current_step = 'parse_json'
+    admin_status['currentStep'] = current_step
+    await download_json_files(title_id, manifest)
+    await gunzip_json_files(title_id)
+    _add_step(steps, 'parse_json', True)
+
+    # Step 4: download + parse AssetBundle manifest and all other AssetBundles
+    current_step = 'parse_uab'
+    admin_status['currentStep'] = current_step
+    await download_uab_manifest(title_id, manifest)
+    await download_uab_all(title_id, manifest['VersionSettings']['AssetBundle']['BaseURL'])
+    _add_step(steps, 'parse_uab', True)
+
+    # Step 5: create data directory
 
     http_status = 200
     http_body = make_http_response(
@@ -82,7 +92,7 @@ def run_pipeline(title_id: str, data_version: str) -> tuple[int, dict[str, Any]]
       title_id=title_id,
       data_version=data_version,
       current_step=current_step,
-      status='OK',
+      status='The operation completed successfully.',
     )
 
     admin_status.update(http_body)
@@ -115,7 +125,7 @@ def run_pipeline(title_id: str, data_version: str) -> tuple[int, dict[str, Any]]
       title_id=title_id,
       data_version=data_version,
       current_step=current_step,
-      status='Internal server error. See status.json for details.',
+      status='Internal server error. Please see log file for details.',
     )
 
     admin_status.update(http_body)

@@ -83,5 +83,5 @@ async def update(req: UpdateBody):
     )
 
   async with lock:
-    status_code, resp_body = run_pipeline(title_id, data_version)
-    return JSONResponse(status_code=status_code, content=resp_body)
+    status_code, body = await run_pipeline(title_id, data_version)
+    return JSONResponse(status_code=status_code, content=body)

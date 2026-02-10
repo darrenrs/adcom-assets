@@ -1,7 +1,22 @@
 import json
+from pathlib import Path
 from typing import Any
 
+import aiohttp
+
 from .paths import PAYLOAD_DIR
+
+
+async def download_file(session: aiohttp.ClientSession, url: str, destination: Path):
+  async with session.get(url) as response:
+    response.raise_for_status()
+
+    with open(destination, 'wb') as f:
+      while True:
+        chunk = await response.content.read(1024)
+        if not chunk:
+          break
+        f.write(chunk)
 
 
 def make_http_response(
