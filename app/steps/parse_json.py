@@ -1,11 +1,12 @@
 import gzip
 import json
+import shutil
 from pathlib import Path
 from typing import Any
 
 import aiohttp
 
-from ..common import download_file
+from ..common import download_file, ensure_dir
 from ..errors import AppError
 from ..paths import WORK_ROOT
 
@@ -17,7 +18,10 @@ def _balance_code_to_name(balance_code: str):
 
 async def download_json_files(title_id: str, manifest: dict[str, Any], language: str = 'English'):
   out_dir: Path = WORK_ROOT / title_id / 'dl_json'
-  out_dir.mkdir(parents=True, exist_ok=True)
+  # Clean directory before running
+  if out_dir.exists():
+    shutil.rmtree(out_dir)
+  ensure_dir(out_dir)
 
   # (url, file_name)
   files: list[tuple[str, str]] = []
@@ -39,7 +43,7 @@ async def download_json_files(title_id: str, manifest: dict[str, Any], language:
     (
       manifest['VersionSettings']['Localization']['BaseURL']
       + manifest['VersionSettings']['Localization']['Urls'][language],
-      language,
+      'Localization',
     )
   )
 
@@ -52,14 +56,14 @@ async def download_json_files(title_id: str, manifest: dict[str, Any], language:
       await f
 
 
-async def gunzip_json_files(title_id: str, language: str = 'English'):
+def gunzip_json_files(title_id: str):
   out_dir: Path = WORK_ROOT / title_id / 'dl_json'
 
   for gz_file in out_dir.glob('*.gz'):
     base_file_name = gz_file.name[:-3]
 
     # write Localization file as txt; all others json
-    if base_file_name == language:
+    if base_file_name == 'Localization':
       file_name = base_file_name + '.txt'
     else:
       file_name = base_file_name + '.json'
@@ -70,7 +74,7 @@ async def gunzip_json_files(title_id: str, language: str = 'English'):
       with gzip.open(gz_file, 'rb') as f:
         raw = f.read()
 
-      if base_file_name == language:
+      if base_file_name == 'Localization':
         # write raw content if localization file
         file_path.write_text(raw.decode('utf-8'), encoding='utf-8')
       else:

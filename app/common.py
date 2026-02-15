@@ -7,7 +7,11 @@ import aiohttp
 from .paths import PAYLOAD_DIR
 
 
-async def download_file(session: aiohttp.ClientSession, url: str, destination: Path):
+def ensure_dir(path: Path) -> None:
+  path.mkdir(parents=True, exist_ok=True)
+
+
+async def download_file(session: aiohttp.ClientSession, url: str, destination: Path) -> None:
   async with session.get(url) as response:
     response.raise_for_status()
 

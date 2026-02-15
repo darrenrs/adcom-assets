@@ -4,13 +4,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from .common import make_http_response
+from .common import ensure_dir, make_http_response
 from .errors import AppError
 from .paths import WORK_ROOT
 from .steps.auth import login_session_ticket
 from .steps.manifest import get_manifest, write_manifest_to_disk
 from .steps.parse_json import download_json_files, gunzip_json_files
-from .steps.parse_uab import download_uab_manifest, download_uab_all
+from .steps.parse_uab import download_uab_manifest, download_uab_all, extract_uab_all
+from .steps.finalize import arrange_assets, arrange_json, move_staging_to_data
 
 
 def _now() -> str:
@@ -33,7 +34,7 @@ async def run_pipeline(title_id: str, data_version: str) -> tuple[int, dict[str,
       jobChrono, steps, details
   """
   out_dir: Path = WORK_ROOT / title_id
-  out_dir.mkdir(parents=True, exist_ok=True)
+  ensure_dir(out_dir)
 
   steps: list[dict[str, Any]] = []
   current_step: str | None = None
@@ -74,17 +75,29 @@ async def run_pipeline(title_id: str, data_version: str) -> tuple[int, dict[str,
     current_step = 'parse_json'
     admin_status['currentStep'] = current_step
     await download_json_files(title_id, manifest)
-    await gunzip_json_files(title_id)
+    gunzip_json_files(title_id)
     _add_step(steps, 'parse_json', True)
 
-    # Step 4: download + parse AssetBundle manifest and all other AssetBundles
+    # Step 4: download AssetBundle manifest and all other AssetBundles
     current_step = 'parse_uab'
     admin_status['currentStep'] = current_step
     await download_uab_manifest(title_id, manifest)
     await download_uab_all(title_id, manifest['VersionSettings']['AssetBundle']['BaseURL'])
     _add_step(steps, 'parse_uab', True)
 
-    # Step 5: create data directory
+    # Step 5: extract all AssetBundles
+    current_step = 'extract_uab'
+    admin_status['currentStep'] = current_step
+    extract_uab_all(title_id)
+    _add_step(steps, 'extract_uab', True)
+
+    # Step 6: create data directory
+    current_step = 'finalize'
+    admin_status['currentStep'] = current_step
+    arrange_assets(title_id)
+    arrange_json(title_id)
+    move_staging_to_data(title_id, data_version, _now())
+    _add_step(steps, 'finalize', True)
 
     http_status = 200
     http_body = make_http_response(

@@ -5,7 +5,7 @@ import requests
 
 from app.errors import AppError, InvalidVersionError, ManifestSchemaError
 
-from ..common import load_payload
+from ..common import ensure_dir, load_payload
 from ..paths import WORK_ROOT
 
 
@@ -159,6 +159,6 @@ def get_manifest(title_id: str, session_ticket: str, data_version: str) -> dict[
 
 
 def write_manifest_to_disk(title_id: str, manifest: dict[str, Any]) -> None:
-  out_dir = WORK_ROOT / title_id / 'output'
-  out_dir.mkdir(parents=True, exist_ok=True)
+  out_dir = WORK_ROOT / title_id / 'staging'
+  ensure_dir(out_dir)
   (out_dir / 'manifest.json').write_text(json.dumps(manifest, indent=2), encoding='utf-8')
