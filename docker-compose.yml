@@ -1,0 +1,12 @@
+services:
+  app:
+    build:
+      context: .
+    ports:
+      - "127.0.0.1:${PORT}:${PORT}"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./work:/app/work
+    restart: unless-stopped

@@ -7,7 +7,6 @@ import aiohttp
 import UnityPy
 
 from ..common import download_file, ensure_dir
-from ..errors import AppError
 from ..paths import WORK_ROOT
 
 UAB_MANIFEST_FILE_NAME = 'uab_manifest.unity3d'
@@ -102,7 +101,7 @@ def extract_uab_all(title_id: str):
           owner_sf = obj.assets_file
 
           # Export local sprites only (m_FileID == 0)
-          for key, v in zip(keys, vals):
+          for key, v in zip(keys, vals, strict=False):
             if not isinstance(v, dict):
               continue
 
@@ -121,10 +120,11 @@ def extract_uab_all(title_id: str):
 
         except AttributeError as e:
           # Does not contain an IconSet
+          print('AttributeError:', e)
           pass
         except Exception as e:
           # TODO: Add to log file in future
-          print(e)
+          print('Exception', e)
           pass
       elif obj.type.name in ['Texture2D', 'Sprite']:
         img = obj.parse_as_object()

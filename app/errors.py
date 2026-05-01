@@ -28,6 +28,31 @@ class PlayFabAuthError(AppError):
     super().__init__(code='PLAYFAB_AUTH_ERROR', message=message, status_code=401, details=details)
 
 
+class InvalidPasswordError(AppError):
+  def __init__(self):
+    super().__init__(code='INVALID_PASSWORD_ERROR', message='Password incorrect.', status_code=400)
+
+
+class InvalidTitleIdError(AppError):
+  def __init__(self, title_id: str, allowed_title_ids: list[str]):
+    super().__init__(
+      code='INVALID_TITLE_ID_ERROR',
+      message=f'Invalid titleId {title_id}. Must be in {allowed_title_ids}.',
+      status_code=400,
+      details={'titleId': title_id, 'allowedTitleIds': allowed_title_ids},
+    )
+
+
+class JobInProgressError(AppError):
+  def __init__(self, title_id: str):
+    super().__init__(
+      code='JOB_IN_PROGRESS_ERROR',
+      message=f'Job already in progress for titleId {title_id}.',
+      status_code=409,
+      details={'titleId': title_id},
+    )
+
+
 class InvalidVersionError(AppError):
   def __init__(self, version: str, details: dict[str, Any] | None = None):
     super().__init__(

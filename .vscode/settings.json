@@ -5,5 +5,6 @@
     "editor.tabSize": 2,
     "editor.insertSpaces": true,
     "editor.defaultFormatter": "charliermarsh.ruff"
-  }
+  },
+  "makefile.configureOnOpen": false
 }

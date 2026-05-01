@@ -1,24 +1,59 @@
+import hashlib
+import json
+import os
+from typing import Any
+
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .common import make_http_response
+from .errors import AppError, InvalidPasswordError, InvalidTitleIdError, JobInProgressError
 from .locks import lock_for
+from .paths import DATA_ROOT
 from .pipeline import run_pipeline
 
 load_dotenv()
 
 app = FastAPI()
 
-VALID_TITLE_IDS = {'6bf5', 'dc4bb'}
+VALID_TITLE_IDS = ('6bf5', 'dc4bb')
+VALID_TITLE_ID_SET = set(VALID_TITLE_IDS)
 
 
 class UpdateBody(BaseModel):
   titleId: str
   dataVersion: str
-  # TODO: Uncomment this when ready to add hash-based password authentication
-  # password: str
+  password: str
+  allowDowngrade: bool = False
+
+
+def _read_title_status(title_id: str) -> dict[str, Any] | None:
+  status_file = DATA_ROOT / title_id / 'status.json'
+  if not status_file.exists():
+    return None
+
+  try:
+    return json.loads(status_file.read_text(encoding='utf-8'))
+  except Exception:
+    return None
+
+
+def _error_response(
+  err: AppError, *, title_id: str, data_version: str, current_step: str | None
+) -> JSONResponse:
+  return JSONResponse(
+    status_code=err.status_code,
+    content=make_http_response(
+      ok=False,
+      title_id=title_id,
+      data_version=data_version,
+      current_step=current_step,
+      status=err.message,
+    ),
+  )
 
 
 @app.get('/')
@@ -26,7 +61,8 @@ async def main():
   """
   GET / - Server status page
   """
-  return {'ok': True, 'titles': VALID_TITLE_IDS}
+  titles = {title_id: _read_title_status(title_id) for title_id in VALID_TITLE_IDS}
+  return {'ok': True, 'titles': titles}
 
 
 @app.post('/update')
@@ -39,49 +75,37 @@ async def update(req: UpdateBody):
   """
   title_id = req.titleId.strip().lower()
   data_version = req.dataVersion.strip()
-  # TODO: Uncomment this when ready to add hash-based password authentication
-  # password = req.password.strip()
+  allow_downgrade = req.allowDowngrade
+  password = req.password
+  password_hash = hashlib.sha1(password.encode()).hexdigest()
 
   # if one of these parameters is missing, the server will respond with a 422 Unprocessable Entity
   # error. This must be handled by the client.
 
-  # if PASSWORD_INCORRECT:
-  #   return JSONResponse(
-  #     status_code=400,
-  #     content=make_response(
-  #       ok=False,
-  #       title_id=title_id,
-  #       data_version=data_version,
-  #       current_step=None,
-  #       status='Password incorrect.',
-  #     ),
-  #   )
+  try:
+    if password_hash != os.environ.get('ADMIN_PASSWORD'):
+      raise InvalidPasswordError()
 
-  if title_id not in VALID_TITLE_IDS:
-    return JSONResponse(
-      status_code=400,
-      content=make_http_response(
-        ok=False,
+    if title_id not in VALID_TITLE_ID_SET:
+      raise InvalidTitleIdError(title_id=title_id, allowed_title_ids=list(VALID_TITLE_IDS))
+
+    lock = lock_for(title_id)
+    if lock.locked():
+      raise JobInProgressError(title_id=title_id)
+
+    async with lock:
+      status_code, body = await run_pipeline(
         title_id=title_id,
         data_version=data_version,
-        current_step=None,
-        status=f'Invalid titleId {title_id}. Must be in {VALID_TITLE_IDS}.',
-      ),
+        allow_downgrade=allow_downgrade,
+      )
+      return JSONResponse(status_code=status_code, content=body)
+
+  except AppError as err:
+    current_step = 'lock' if isinstance(err, JobInProgressError) else None
+    return _error_response(
+      err, title_id=title_id, data_version=data_version, current_step=current_step
     )
 
-  lock = lock_for(title_id)
-  if lock.locked():
-    return JSONResponse(
-      status_code=409,
-      content=make_http_response(
-        ok=False,
-        title_id=title_id,
-        data_version=data_version,
-        current_step='lock',
-        status=f'Job already in progress for titleId {title_id}.',
-      ),
-    )
 
-  async with lock:
-    status_code, body = await run_pipeline(title_id, data_version)
-    return JSONResponse(status_code=status_code, content=body)
+app.mount('/assets', StaticFiles(directory=DATA_ROOT, check_dir=False), name='data')
