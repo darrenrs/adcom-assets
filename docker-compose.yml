@@ -1,12 +1,19 @@
 services:
-  app:
+  assets:
     build:
       context: .
     ports:
       - "127.0.0.1:${PORT}:${PORT}"
+    networks:
+      - adcom-sites
     env_file:
       - .env
     volumes:
       - ./data:/app/data
       - ./work:/app/work
     restart: unless-stopped
+
+networks:
+  adcom-sites:
+    name: adcom-sites
+    external: true

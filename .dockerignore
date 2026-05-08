@@ -1,0 +1,12 @@
+.DS_Store
+.env
+.git
+.ruff_cache
+.venv
+.vscode
+__pycache__
+*.pyc
+
+data
+work
+_temp

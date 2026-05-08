@@ -9,9 +9,8 @@ RUN apt-get update \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app ./app
-COPY static ./static
-RUN mkdir -p /app/data
+COPY . .
+RUN mkdir -p /app/data /app/static /app/work
 
 ENV PORT=3002
 EXPOSE 3002

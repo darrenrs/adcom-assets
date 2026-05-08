@@ -35,27 +35,48 @@ def _ltehistory_source_name(title_id: str, balance_name: str) -> str:
   return balance_name
 
 
+def _resolve_case_insensitive_path(path: Path) -> Path | None:
+  if path.exists():
+    return path
+
+  if not path.parent.exists():
+    resolved_parent = _resolve_case_insensitive_path(path.parent)
+    if resolved_parent is None:
+      return None
+  else:
+    resolved_parent = path.parent
+
+  try:
+    return next(
+      child for child in resolved_parent.iterdir() if child.name.casefold() == path.name.casefold()
+    )
+  except (StopIteration, FileNotFoundError, NotADirectoryError, PermissionError):
+    return None
+
+
 def _copy_file(src: Path, dst: Path) -> None:
   ensure_dir(dst.parent)
-  if not src.exists():
+  resolved_src = _resolve_case_insensitive_path(src)
+  if resolved_src is None:
     raise AppError(
       code='FINALIZE_SOURCE_MISSING',
       message='Expected source asset was missing during finalize.',
       status_code=500,
       details={'src': str(src), 'dst': str(dst)},
     )
-  shutil.copyfile(src, dst)
+  shutil.copyfile(resolved_src, dst)
 
 
 def _copy_tree(src: Path, dst: Path) -> None:
-  if not src.exists():
+  resolved_src = _resolve_case_insensitive_path(src)
+  if resolved_src is None:
     return
   ensure_dir(dst)
-  shutil.copytree(src, dst, dirs_exist_ok=True)
+  shutil.copytree(resolved_src, dst, dirs_exist_ok=True)
 
 
 def _copy_file_if_exists(src: Path, dst: Path) -> bool:
-  if not src.exists():
+  if _resolve_case_insensitive_path(src) is None:
     return False
   _copy_file(src, dst)
   return True

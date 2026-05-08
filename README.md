@@ -10,7 +10,8 @@ In the past, tools for Hyper Hippo games included copyrighted resources in their
 
 - Create a `.env` file according to the format of `.env.example`.
   - A vendor-specific PlayFab authentication ID is required; this can be found on iOS or Android by using a reverse-proxy tool like mitmproxy while authenticating to the game on your device.
-- This is intended to be ran as a Docker container; build with `docker compose up --build -d`.
+- This is intended to be ran as a Docker container; build with `./build.sh`.
+- The container joins the shared external Docker network `adcom-sites` and is reachable by the other app containers at `http://assets:3002`.
 - Some resources are baked into the game's binary and must be added manually to the `static/{titleId}` directory before continuing. This directory will be cloned to `data/{titleId}`. The `static` directory is not required but a number of assets are guaranteed to be otherwise missing.
 
 ### API
@@ -18,6 +19,17 @@ In the past, tools for Hyper Hippo games included copyrighted resources in their
 - Send a `POST` request to `http://localhost:PORT/update` with `Content-Type: application/json` and a JSON entity as the body with keys `titleId`, `dataVersion`, and `password`. This process may take anywhere from 15 to 120 seconds to run.
   - Reverting to a previous version is not permitted by default, and requires the additional parameter `allowDowngrade`.
 - The general status of all titles can be seen at `/`. A more verbose JSON structure is available at `work/{titleId}/status.json` and is not exposed to the HTTP server in any form. It may be useful to administrators for debugging.
+- In production, expose only `/assets/` through the public reverse proxy. Keep `/` and `/update` available only on the private Docker network or loopback interface.
+
+Example nginx location for the public asset path:
+
+```nginx
+location /assets/ {
+  proxy_pass http://127.0.0.1:3002/assets/;
+}
+```
+
+Do not add public `location /` or `location /update` rules for this service.
 
 ## Title IDs
 

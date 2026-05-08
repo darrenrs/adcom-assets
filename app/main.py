@@ -23,6 +23,54 @@ VALID_TITLE_IDS = ('6bf5', 'dc4bb')
 VALID_TITLE_ID_SET = set(VALID_TITLE_IDS)
 
 
+class CaseInsensitiveStaticFiles(StaticFiles):
+  def lookup_path(self, path: str) -> tuple[str, os.stat_result | None]:
+    full_path, stat_result = super().lookup_path(path)
+    if stat_result is not None:
+      return full_path, stat_result
+
+    for directory in self.all_directories:
+      resolved_path = self._lookup_case_insensitive_path(directory, path)
+      if resolved_path is None:
+        continue
+
+      if self.follow_symlink:
+        full_path = os.path.abspath(resolved_path)
+      else:
+        full_path = os.path.realpath(resolved_path)
+
+      root_path = os.path.realpath(directory)
+      if os.path.commonpath([full_path, root_path]) != root_path:
+        continue
+
+      try:
+        return full_path, os.stat(full_path)
+      except (FileNotFoundError, NotADirectoryError):
+        continue
+
+    return '', None
+
+  @staticmethod
+  def _lookup_case_insensitive_path(directory: str, path: str) -> str | None:
+    current_path = directory
+    for part in path.split(os.path.sep):
+      if part in ('', '.'):
+        continue
+      if part == '..':
+        return None
+      try:
+        entries = os.listdir(current_path)
+      except (FileNotFoundError, NotADirectoryError, PermissionError):
+        return None
+
+      match = next((entry for entry in entries if entry.casefold() == part.casefold()), None)
+      if match is None:
+        return None
+      current_path = os.path.join(current_path, match)
+
+    return current_path
+
+
 class UpdateBody(BaseModel):
   titleId: str
   dataVersion: str
@@ -108,4 +156,4 @@ async def update(req: UpdateBody):
     )
 
 
-app.mount('/assets', StaticFiles(directory=DATA_ROOT, check_dir=False), name='data')
+app.mount('/assets', CaseInsensitiveStaticFiles(directory=DATA_ROOT, check_dir=False), name='data')
