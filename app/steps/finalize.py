@@ -314,7 +314,7 @@ def arrange_json(title_id: str) -> None:
     base_file_name = json_file.name[:-5]
     out_dir: Path = WORK_ROOT / title_id / 'staging' / base_file_name
 
-    if base_file_name in ['LeaderBoardNames', 'LTESchedule', 'common']:
+    if base_file_name in ['LeaderBoardNames', 'LTESchedule', 'balance_manifest', 'common']:
       continue
 
     _copy_file(json_file, out_dir / 'balance.json')
@@ -322,6 +322,10 @@ def arrange_json(title_id: str) -> None:
   _copy_file(json_dir / 'common.json', WORK_ROOT / title_id / 'staging' / 'common.json')
   _copy_file(json_dir / 'LTESchedule.json', WORK_ROOT / title_id / 'staging' / 'schedule.json')
   _copy_file(json_dir / 'Localization.txt', WORK_ROOT / title_id / 'staging' / 'localization.txt')
+  _copy_file(
+    json_dir / 'balance_manifest.json',
+    WORK_ROOT / title_id / 'staging' / 'balance_manifest.json',
+  )
 
   if title_id == '6bf5':
     _copy_file(

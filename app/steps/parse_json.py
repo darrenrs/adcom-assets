@@ -16,12 +16,29 @@ def _balance_code_to_name(balance_code: str):
   return segments[0]
 
 
+def _write_balance_manifest(title_id: str, manifest: dict[str, Any]) -> None:
+  balances = [
+    {
+      'balanceId': balance_code,
+      'assetBalanceId': _balance_code_to_name(balance_code),
+    }
+    for balance_code in manifest['VersionSettings']['Balance']['Urls']
+  ]
+
+  manifest_path = WORK_ROOT / title_id / 'dl_json' / 'balance_manifest.json'
+  manifest_path.write_text(
+    json.dumps({'balances': balances}, indent=2, sort_keys=True),
+    encoding='utf-8',
+  )
+
+
 async def download_json_files(title_id: str, manifest: dict[str, Any], language: str = 'English'):
   out_dir: Path = WORK_ROOT / title_id / 'dl_json'
   # Clean directory before running
   if out_dir.exists():
     shutil.rmtree(out_dir)
   ensure_dir(out_dir)
+  _write_balance_manifest(title_id, manifest)
 
   # (url, file_name)
   files: list[tuple[str, str]] = []
