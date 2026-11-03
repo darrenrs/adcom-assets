@@ -181,7 +181,7 @@ def arrange_assets(title_id: str) -> None:
     source_balance_name = bundle_dir.name
 
     # Skip non-balance or handled elsewhere
-    if source_balance_name in ['common', 'ltehistory', 'fusion', 'avatars']:
+    if source_balance_name in ['common', 'ltehistory', 'fusion', 'avatars', 'operativequests']:
       continue
 
     balance_name = _normalize_balance_name(title_id=title_id, balance_name=source_balance_name)
